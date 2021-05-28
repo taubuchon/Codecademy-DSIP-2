@@ -122,4 +122,4 @@ WITH revenue as
 SELECT current.Year, current.Previous_Year, current.Revenue_for_Year, 
 ROUND((current.Revenue_for_Year - previous.Revenue_for_Year)/previous.Revenue_for_Year * 100, 2) AS 'Pct_change_compared_to_last_year'
 FROM revenue current LEFT JOIN revenue previous
-ON current.Previous_Year = previous.Year
+ON current.Previous_Year = previous.Year;
