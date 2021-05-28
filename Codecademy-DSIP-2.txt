@@ -58,3 +58,68 @@ LEFT JOIN customers ON employees.EmployeeId = customers.SupportRepId
 LEFT JOIN invoices ON customers.CustomerId = invoices.CustomerId
 GROUP BY employees.EmployeeId
 ORDER BY SUM(invoices.Total) DESC;
+
+--Intermediate Challenge
+--Do longer or shorter length albums tend to generate more revenue?
+SELECT albums.AlbumId, Title, SUM(Milliseconds)/6000 AS "album_length_minutes",
+CASE
+WHEN SUM(Milliseconds)/6000 >= 60 THEN "Long"
+WHEN SUM(Milliseconds)/6000 >= 30 THEN "Medium"
+ELSE "Short"
+END album_length_description
+FROM albums
+JOIN tracks ON albums.AlbumId = tracks.TrackId
+GROUP BY albums.AlbumId
+ORDER BY album_length_minutes DESC;
+
+WITH album_length AS
+(SELECT albums.AlbumId, Title, SUM(Milliseconds)/6000 AS "album_length_minutes",
+CASE
+WHEN SUM(Milliseconds)/6000 >= 60 THEN "Long"
+WHEN SUM(Milliseconds)/6000 >= 30 THEN "Medium"
+ELSE "Short"
+END album_length_description
+FROM albums
+JOIN tracks ON albums.AlbumId = tracks.TrackId
+GROUP BY albums.AlbumId
+ORDER BY album_length_minutes DESC)
+SELECT album_length_description, ROUND(SUM(invoices.Total), 2) AS "Total Revenue" FROM album_length
+JOIN tracks ON tracks.AlbumId = album_length.AlbumId
+JOIN invoice_items ON invoice_items.TrackId = tracks.TrackId
+JOIN invoices ON invoices.InvoiceId = invoice_items.InvoiceId
+GROUP BY album_length_description
+ORDER BY "Total Revenue" DESC;
+
+--Is the number of times a track appears in any playlist a good indicator of sales?
+SELECT tracks.Name, COUNT(playlist_track.TrackId) AS "playlist_count" FROM tracks
+LEFT JOIN playlist_track ON playlist_track.TrackId = tracks.TrackId
+GROUP BY playlist_track.TrackId
+ORDER BY playlist_track.TrackId DESC;
+
+WITH track_appearances AS 
+(SELECT tracks.Name, tracks.TrackId, COUNT(playlist_track.TrackId) AS "playlist_count" FROM tracks
+LEFT JOIN playlist_track ON playlist_track.TrackId = tracks.TrackId
+GROUP BY playlist_track.TrackId
+ORDER BY playlist_track.TrackId DESC)
+SELECT playlist_count, ROUND(AVG(invoices.Total), 2) AS "avg_revenue" FROM track_appearances
+JOIN invoice_items ON track_appearances.TrackId = invoice_items.TrackId
+JOIN invoices ON invoices.InvoiceId = invoice_items.InvoiceID
+GROUP BY 1
+ORDER BY 2 DESC;
+
+--Advanced Challenge
+--How much revenue is generated each year, and what is its percent change 53 from the previous year?
+SELECT CAST(STRFTIME('%Y',InvoiceDate) as INT) AS 'year', ROUND(SUM(Total), 2) AS 'years_revenue', CAST(STRFTIME('%Y',InvoiceDate) as INT) - 1 AS 'previous_year'
+  FROM invoices
+  GROUP BY 1
+  ORDER BY 1 DESC; 
+  
+WITH revenue as
+(SELECT CAST(STRFTIME('%Y',InvoiceDate) as INT) AS 'Year', CAST(STRFTIME('%Y',InvoiceDate) as INT) - 1 AS 'Previous_Year', ROUND(SUM(Total), 2) AS 'Revenue_for_Year'
+  FROM invoices
+  GROUP BY 1
+  ORDER BY 1 DESC)
+SELECT current.Year, current.Previous_Year, current.Revenue_for_Year, 
+ROUND((current.Revenue_for_Year - previous.Revenue_for_Year)/previous.Revenue_for_Year * 100, 2) AS 'Pct_change_compared_to_last_year'
+FROM revenue current LEFT JOIN revenue previous
+ON current.Previous_Year = previous.Year
